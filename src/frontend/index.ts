@@ -1,5 +1,5 @@
-import { css, html, LitElement } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { html, LitElement } from "lit";
+import { customElement, property } from "lit/decorators.js";
 import * as monaco from "monaco-editor";
 
 // Live reload for development
@@ -86,7 +86,7 @@ export class CCApp extends LitElement {
                this.loading = false;
                return;
             }
-         } catch (e) {
+         } catch (_e) {
             // No error.json is fine, continue loading versions
          }
 
@@ -115,7 +115,7 @@ export class CCApp extends LitElement {
          }
 
          this.loading = false;
-      } catch (err) {
+      } catch (_err) {
          this.error = "Failed to load versions";
          this.loading = false;
       }
@@ -195,7 +195,7 @@ export class CCApp extends LitElement {
             <!-- Mobile layout -->
             <div class="flex sm:hidden items-center justify-between gap-2">
               <h1 class="text-xl font-bold text-white flex-shrink-0">cchistory</h1>
-              
+
               <!-- Version selectors on mobile - in first row -->
               <div class="flex items-center gap-2 flex-1 justify-end">
                 <select
@@ -439,9 +439,5 @@ export class CCApp extends LitElement {
       if (va.major !== vb.major) return va.major - vb.major;
       if (va.minor !== vb.minor) return va.minor - vb.minor;
       return va.patch - vb.patch;
-   }
-
-   private sortVersions(versions: string[]): string[] {
-      return [...versions].sort(this.compareVersions);
    }
 }
