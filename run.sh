@@ -76,6 +76,9 @@ deploy)
     ssh $SERVER "cd $SERVER_DIR/$DOMAIN && ./run.sh stop && ./run.sh prod"
 
     echo "✅ Deployed to https://$DOMAIN"
+
+    echo "Streaming logs from $DOMAIN..."
+    ssh -t $SERVER "cd $SERVER_DIR/$DOMAIN && ./run.sh logs"
     ;;
 sync)
     echo "Syncing $PROJECT to $DOMAIN..."
