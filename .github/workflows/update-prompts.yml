@@ -87,13 +87,13 @@ jobs:
 
           if [ "${{ inputs.fetch_all }}" = "true" ]; then
             echo "Fetching all versions from 1.0.0 to latest..."
-            cchistory 1.0.0 --latest --claude-args "--model haiku"
+            cchistory 1.0.0 --latest
           elif [ -n "${{ inputs.version }}" ]; then
             echo "Fetching specific version: ${{ inputs.version }}"
-            cchistory "${{ inputs.version }}" --claude-args "--model haiku"
+            cchistory "${{ inputs.version }}"
           else
             echo "Fetching from ${{ needs.check-new-version.outputs.our_latest }} to ${{ needs.check-new-version.outputs.npm_latest }}..."
-            cchistory "${{ needs.check-new-version.outputs.our_latest }}" --latest --claude-args "--model haiku" || true
+            cchistory "${{ needs.check-new-version.outputs.our_latest }}" --latest || true
           fi
 
       - name: Update versions.json
