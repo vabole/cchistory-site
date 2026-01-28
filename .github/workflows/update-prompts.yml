@@ -1,0 +1,139 @@
+name: Update Prompts
+
+on:
+  schedule:
+    # Run hourly at minute 15
+    - cron: '15 * * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Specific version to fetch (leave empty for latest only)'
+        required: false
+        type: string
+      fetch_all:
+        description: 'Fetch all versions from 1.0.0 to latest'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  check-new-version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_update: ${{ steps.check.outputs.should_update }}
+      npm_latest: ${{ steps.check.outputs.npm_latest }}
+      our_latest: ${{ steps.check.outputs.our_latest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            data/versions.json
+
+      - name: Check for new version
+        id: check
+        run: |
+          # Get latest version from npm
+          NPM_LATEST=$(npm view @anthropic-ai/claude-code version 2>/dev/null || echo "0.0.0")
+          echo "npm_latest=$NPM_LATEST" >> $GITHUB_OUTPUT
+
+          # Get our latest version
+          if [ -f data/versions.json ]; then
+            OUR_LATEST=$(jq -r '.versions[-1].version' data/versions.json)
+          else
+            OUR_LATEST="0.0.0"
+          fi
+          echo "our_latest=$OUR_LATEST" >> $GITHUB_OUTPUT
+
+          # Compare versions
+          if [ "${{ inputs.fetch_all }}" = "true" ] || [ -n "${{ inputs.version }}" ]; then
+            echo "should_update=true" >> $GITHUB_OUTPUT
+            echo "Manual trigger - will update"
+          elif [ "$NPM_LATEST" != "$OUR_LATEST" ]; then
+            echo "should_update=true" >> $GITHUB_OUTPUT
+            echo "New version available: $NPM_LATEST (we have: $OUR_LATEST)"
+          else
+            echo "should_update=false" >> $GITHUB_OUTPUT
+            echo "No new version (latest: $NPM_LATEST)"
+          fi
+
+  update:
+    needs: check-new-version
+    if: needs.check-new-version.outputs.should_update == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Install cchistory
+        run: npm install -g @mariozechner/cchistory
+
+      - name: Fetch new prompts
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          cd data
+
+          if [ "${{ inputs.fetch_all }}" = "true" ]; then
+            echo "Fetching all versions from 1.0.0 to latest..."
+            cchistory 1.0.0 --latest
+          elif [ -n "${{ inputs.version }}" ]; then
+            echo "Fetching specific version: ${{ inputs.version }}"
+            cchistory "${{ inputs.version }}"
+          else
+            echo "Fetching from ${{ needs.check-new-version.outputs.our_latest }} to ${{ needs.check-new-version.outputs.npm_latest }}..."
+            cchistory "${{ needs.check-new-version.outputs.our_latest }}" --latest || true
+          fi
+
+      - name: Update versions.json
+        run: |
+          cd data
+          node -e "
+            const fs = require('fs');
+            const files = fs.readdirSync('.')
+              .filter(f => f.match(/^prompts-\d+\.\d+\.\d+\.md$/));
+
+            const versions = files
+              .map(f => f.match(/prompts-(\d+\.\d+\.\d+)\.md/)[1])
+              .sort((a, b) => {
+                const pa = a.split('.').map(Number);
+                const pb = b.split('.').map(Number);
+                return pa[0] - pb[0] || pa[1] - pb[1] || pa[2] - pb[2];
+              })
+              .map(v => ({ version: v }));
+
+            fs.writeFileSync('versions.json', JSON.stringify({
+              versions,
+              lastUpdated: new Date().toISOString()
+            }, null, 2));
+
+            console.log('Found ' + versions.length + ' versions');
+          "
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add Claude Code v${{ needs.check-new-version.outputs.npm_latest }} prompts"
+          git push
