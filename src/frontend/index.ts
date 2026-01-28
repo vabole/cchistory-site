@@ -2,21 +2,12 @@ import { html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import * as monaco from "monaco-editor";
 
-// Live reload for development
-if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-   const ws = new WebSocket(`ws://${window.location.host}/livereload`);
-   ws.onmessage = () => {
-      // Force hard refresh to clear any cached state
-      location.reload();
-   };
-
-   // Reconnect on disconnect
-   ws.onclose = () => {
-      setTimeout(() => {
-         location.reload();
-      }, 1000);
-   };
-}
+// Live reload disabled for local testing
+// if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+//    const ws = new WebSocket(`ws://${window.location.host}/livereload`);
+//    ws.onmessage = () => location.reload();
+//    ws.onclose = () => setTimeout(() => location.reload(), 1000);
+// }
 
 @customElement("cc-app")
 export class CCApp extends LitElement {
@@ -26,7 +17,7 @@ export class CCApp extends LitElement {
    }
 
    @property({ type: String })
-   fromVersion = "1.0.0";
+   fromVersion = "";
 
    @property({ type: String })
    toVersion = "";
