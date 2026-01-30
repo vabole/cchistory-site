@@ -97,9 +97,9 @@ export class CCApp extends LitElement {
          const data = await versionsResponse.json();
          this.versions = data.versions.map((v: { version: string }) => v.version);
 
-         // Set default versions if not already set
+         // Set default versions if not already set (show diff between latest and previous)
          if (!this.fromVersion && this.versions.length > 0) {
-            this.fromVersion = this.versions[0];
+            this.fromVersion = this.versions[Math.max(0, this.versions.length - 2)];
          }
          if (!this.toVersion && this.versions.length > 0) {
             this.toVersion = this.versions[this.versions.length - 1];
@@ -128,8 +128,20 @@ export class CCApp extends LitElement {
                   </p>
                 </div>
 
-                <!-- Version selectors -->
-                <div class="flex items-center gap-3">
+                <!-- Version selectors with navigation -->
+                <div class="flex items-center gap-2">
+                  <!-- Previous button -->
+                  <button
+                    class="p-1.5 rounded border border-neutral-700 bg-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-neutral-400 disabled:hover:border-neutral-700 transition-colors"
+                    @click=${this.navigatePrev}
+                    ?disabled=${this.loading || !this.canNavigatePrev()}
+                    title="Previous version diff"
+                  >
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                  </button>
+
                   <select
                     class="bg-neutral-800 text-white border border-neutral-700 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-purple-500 cursor-pointer font-mono"
                     .value=${this.fromVersion}
@@ -159,6 +171,18 @@ export class CCApp extends LitElement {
                     `,
                     )}
                   </select>
+
+                  <!-- Next button -->
+                  <button
+                    class="p-1.5 rounded border border-neutral-700 bg-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-neutral-400 disabled:hover:border-neutral-700 transition-colors"
+                    @click=${this.navigateNext}
+                    ?disabled=${this.loading || !this.canNavigateNext()}
+                    title="Next version diff"
+                  >
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                      <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
 
@@ -187,8 +211,20 @@ export class CCApp extends LitElement {
             <div class="flex sm:hidden items-center justify-between gap-2">
               <h1 class="text-xl font-bold text-white flex-shrink-0">cchistory</h1>
 
-              <!-- Version selectors on mobile - in first row -->
-              <div class="flex items-center gap-2 flex-1 justify-end">
+              <!-- Version selectors on mobile with navigation -->
+              <div class="flex items-center gap-1.5 flex-1 justify-end">
+                <!-- Previous button -->
+                <button
+                  class="p-1 rounded border border-neutral-700 bg-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  @click=${this.navigatePrev}
+                  ?disabled=${this.loading || !this.canNavigatePrev()}
+                  title="Previous version diff"
+                >
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                  </svg>
+                </button>
+
                 <select
                   class="bg-neutral-800 text-white border border-neutral-700 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-purple-500 cursor-pointer font-mono"
                   .value=${this.fromVersion}
@@ -218,6 +254,18 @@ export class CCApp extends LitElement {
                   `,
                   )}
                 </select>
+
+                <!-- Next button -->
+                <button
+                  class="p-1 rounded border border-neutral-700 bg-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  @click=${this.navigateNext}
+                  ?disabled=${this.loading || !this.canNavigateNext()}
+                  title="Next version diff"
+                >
+                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -430,5 +478,35 @@ export class CCApp extends LitElement {
       if (va.major !== vb.major) return va.major - vb.major;
       if (va.minor !== vb.minor) return va.minor - vb.minor;
       return va.patch - vb.patch;
+   }
+
+   // Navigation: move to previous version pair
+   private canNavigatePrev(): boolean {
+      const fromIndex = this.versions.indexOf(this.fromVersion);
+      return fromIndex > 0;
+   }
+
+   private async navigatePrev() {
+      const fromIndex = this.versions.indexOf(this.fromVersion);
+      if (fromIndex > 0) {
+         this.fromVersion = this.versions[fromIndex - 1];
+         this.toVersion = this.versions[fromIndex]; // current fromVersion becomes toVersion
+         await this.updateDiff();
+      }
+   }
+
+   // Navigation: move to next version pair
+   private canNavigateNext(): boolean {
+      const toIndex = this.versions.indexOf(this.toVersion);
+      return toIndex < this.versions.length - 1;
+   }
+
+   private async navigateNext() {
+      const toIndex = this.versions.indexOf(this.toVersion);
+      if (toIndex < this.versions.length - 1) {
+         this.fromVersion = this.versions[toIndex]; // current toVersion becomes fromVersion
+         this.toVersion = this.versions[toIndex + 1];
+         await this.updateDiff();
+      }
    }
 }
